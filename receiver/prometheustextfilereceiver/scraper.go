@@ -95,22 +95,22 @@ func (s *textfileScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 	return metrics, nil
 }
 
-// processFile reads and parses a prometheus textfile
+// processFile reads and parses a prometheus textfile and returns prometheus protos of the parsed metrics
 func (s *textfileScraper) processFile(path string) (time.Time, map[string]*dto.MetricFamily, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return time.Time{}, nil, fmt.Errorf("failed to open textfile data file %q: %w", path, err)
+		return time.Time{}, nil, fmt.Errorf("failed to open file %q: %w", path, err)
 	}
 	defer f.Close()
 
 	var parser expfmt.TextParser
 	families, err := parser.TextToMetricFamilies(f)
 	if err != nil {
-		return time.Time{}, nil, fmt.Errorf("failed to parse textfile data from %q: %w", path, err)
+		return time.Time{}, nil, fmt.Errorf("failed to parse metrics from %q: %w", path, err)
 	}
 
 	if s.hasTimestamps(families) {
-		return time.Time{}, nil, fmt.Errorf("textfile %q contains unsupported client-side timestamps, skipping entire file", path)
+		return time.Time{}, nil, fmt.Errorf("file %q contains unsupported client-side timestamps, skipping", path)
 	}
 
 	// Only stat the file once it has been parsed and validated
