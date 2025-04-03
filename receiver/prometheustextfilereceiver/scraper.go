@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/prometheus/common/expfmt"
@@ -20,7 +19,6 @@ import (
 	"go.uber.org/zap"
 
 	dto "github.com/prometheus/client_model/go"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/prometheus"
 )
 
 type textfileScraper struct {
@@ -51,10 +49,10 @@ func (s *textfileScraper) shutdown(context.Context) error {
 // scrape collects metrics from prometheus text files
 func (s *textfileScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 	metrics := pmetric.NewMetrics()
-	
+
 	var scrapeErrors []error
-	var successfulFiles = make(map[string]time.Time)
-	
+	successfulFiles := make(map[string]time.Time)
+
 	// Generate list of all files to process
 	allFiles := []string{}
 	for _, directory := range s.cfg.Directories {
@@ -69,7 +67,7 @@ func (s *textfileScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 			allFiles = append(allFiles, files...)
 		}
 	}
-	
+
 	// Check that files exist
 	for _, filePath := range allFiles {
 		// unable to locate file
@@ -81,10 +79,10 @@ func (s *textfileScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 			scrapeErrors = append(scrapeErrors, fmt.Errorf("file is actually directory: %s", filePath))
 		}
 	}
-	
+
 	// Add mtime metrics for successful files
 	s.addMtimeMetrics(successfulFiles, metrics)
-	
+
 	// Add error metric if any errors occurred
 	if len(scrapeErrors) > 0 {
 		s.addScrapeErrorMetric(metrics)
@@ -93,7 +91,7 @@ func (s *textfileScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 			s.logger.Error("Error during prometheus textfile scraping", zap.Error(err))
 		}
 	}
-	
+
 	return metrics, nil
 }
 
@@ -104,23 +102,23 @@ func (s *textfileScraper) processFile(path string) (time.Time, map[string]*dto.M
 		return time.Time{}, nil, fmt.Errorf("failed to open textfile data file %q: %w", path, err)
 	}
 	defer f.Close()
-	
+
 	var parser expfmt.TextParser
 	families, err := parser.TextToMetricFamilies(f)
 	if err != nil {
 		return time.Time{}, nil, fmt.Errorf("failed to parse textfile data from %q: %w", path, err)
 	}
-	
+
 	if s.hasTimestamps(families) {
 		return time.Time{}, nil, fmt.Errorf("textfile %q contains unsupported client-side timestamps, skipping entire file", path)
 	}
-	
+
 	// Only stat the file once it has been parsed and validated
 	stat, err := f.Stat()
 	if err != nil {
 		return time.Time{}, families, fmt.Errorf("failed to stat %q: %w", path, err)
 	}
-	
+
 	return stat.ModTime(), families, nil
 }
 
@@ -140,21 +138,21 @@ func (s *textfileScraper) hasTimestamps(parsedFamilies map[string]*dto.MetricFam
 func (s *textfileScraper) convertMetricFamily(family *dto.MetricFamily, metrics pmetric.Metrics) {
 	// Prometheus to OTLP metrics conversion is handled by the prometheus translator package
 	// This is a simplified version - in a real implementation you would use the full translator
-	
+
 	timestamp := pcommon.NewTimestampFromTime(time.Now())
-	
+
 	for _, metric := range family.Metric {
 		rm := metrics.ResourceMetrics().AppendEmpty()
 		sm := rm.ScopeMetrics().AppendEmpty()
 		sm.Scope().SetName("prometheustextfilereceiver")
 		sm.Scope().SetVersion(s.settings.BuildInfo.Version)
-		
+
 		m := sm.Metrics().AppendEmpty()
 		m.SetName(*family.Name)
 		if family.Help != nil {
 			m.SetDescription(*family.Help)
 		}
-		
+
 		// Convert based on metric type
 		switch family.GetType() {
 		case dto.MetricType_COUNTER:
@@ -165,14 +163,14 @@ func (s *textfileScraper) convertMetricFamily(family *dto.MetricFamily, metrics 
 			dp.SetDoubleValue(metric.Counter.GetValue())
 			dp.SetTimestamp(timestamp)
 			s.setDataPointAttributes(dp.Attributes(), metric.Label)
-			
+
 		case dto.MetricType_GAUGE:
 			gauge := m.SetEmptyGauge()
 			dp := gauge.DataPoints().AppendEmpty()
 			dp.SetDoubleValue(metric.Gauge.GetValue())
 			dp.SetTimestamp(timestamp)
 			s.setDataPointAttributes(dp.Attributes(), metric.Label)
-			
+
 		case dto.MetricType_SUMMARY:
 			summary := m.SetEmptySummary()
 			dp := summary.DataPoints().AppendEmpty()
@@ -180,13 +178,13 @@ func (s *textfileScraper) convertMetricFamily(family *dto.MetricFamily, metrics 
 			dp.SetSum(metric.Summary.GetSampleSum())
 			dp.SetTimestamp(timestamp)
 			s.setDataPointAttributes(dp.Attributes(), metric.Label)
-			
+
 			for _, q := range metric.Summary.Quantile {
 				qv := dp.QuantileValues().AppendEmpty()
 				qv.SetQuantile(q.GetQuantile())
 				qv.SetValue(q.GetValue())
 			}
-			
+
 		case dto.MetricType_HISTOGRAM:
 			histogram := m.SetEmptyHistogram()
 			histogram.SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
@@ -195,16 +193,16 @@ func (s *textfileScraper) convertMetricFamily(family *dto.MetricFamily, metrics 
 			dp.SetSum(metric.Histogram.GetSampleSum())
 			dp.SetTimestamp(timestamp)
 			s.setDataPointAttributes(dp.Attributes(), metric.Label)
-			
+
 			// Convert buckets
 			for _, bucket := range metric.Histogram.Bucket {
 				bound := bucket.GetUpperBound()
 				bucketCount := bucket.GetCumulativeCount()
-				
+
 				dp.ExplicitBounds().Append(bound)
 				dp.BucketCounts().Append(bucketCount)
 			}
-			
+
 		case dto.MetricType_UNTYPED:
 			// Treat untyped as gauge
 			gauge := m.SetEmptyGauge()
@@ -228,25 +226,25 @@ func (s *textfileScraper) addMtimeMetrics(mtimes map[string]time.Time, metrics p
 	if len(mtimes) == 0 {
 		return
 	}
-	
+
 	// Sort file paths for consistent output
 	files := make([]string, 0, len(mtimes))
 	for file := range mtimes {
 		files = append(files, file)
 	}
 	sort.Strings(files)
-	
+
 	rm := metrics.ResourceMetrics().AppendEmpty()
 	sm := rm.ScopeMetrics().AppendEmpty()
 	sm.Scope().SetName("prometheustextfilereceiver")
 	sm.Scope().SetVersion(s.settings.BuildInfo.Version)
-	
+
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("textfile_mtime_seconds")
 	m.SetDescription("Unixtime mtime of textfiles successfully read.")
-	
+
 	gauge := m.SetEmptyGauge()
-	
+
 	for _, file := range files {
 		mtime := mtimes[file]
 		dp := gauge.DataPoints().AppendEmpty()
@@ -262,13 +260,13 @@ func (s *textfileScraper) addScrapeErrorMetric(metrics pmetric.Metrics) {
 	sm := rm.ScopeMetrics().AppendEmpty()
 	sm.Scope().SetName("prometheustextfilereceiver")
 	sm.Scope().SetVersion(s.settings.BuildInfo.Version)
-	
+
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("textfile_scrape_error")
 	m.SetDescription("1 if there was an error opening or reading a file, 0 otherwise")
-	
+
 	gauge := m.SetEmptyGauge()
 	dp := gauge.DataPoints().AppendEmpty()
 	dp.SetDoubleValue(1.0)
 	dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Now()))
-} 
+}

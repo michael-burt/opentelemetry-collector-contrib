@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/receiver/receivertest"
@@ -19,38 +18,38 @@ import (
 
 func TestScraper(t *testing.T) {
 	dir := t.TempDir()
-	
+
 	// Copy the sample.prom file to the temp dir
 	samplePath := filepath.Join("testdata", "sample.prom")
 	sampleContent, err := os.ReadFile(samplePath)
 	require.NoError(t, err)
-	
+
 	destPath := filepath.Join(dir, "sample.prom")
-	err = os.WriteFile(destPath, sampleContent, 0600)
+	err = os.WriteFile(destPath, sampleContent, 0o600)
 	require.NoError(t, err)
-	
+
 	cfg := &Config{
 		Directories: []string{dir},
 	}
-	
+
 	scraper := newTextfileScraper(
 		receivertest.NewNopCreateSettings(),
 		cfg,
 	)
-	
+
 	metrics, err := scraper.scrape(context.Background())
 	require.NoError(t, err)
-	
+
 	// Check if metrics were collected
 	assert.Greater(t, metrics.ResourceMetrics().Len(), 0)
-	
+
 	// Verify metrics details - we should have core metrics plus the textfile_mtime_seconds metric
 	gaugeFound := false
 	counterFound := false
 	histogramFound := false
 	summaryFound := false
 	mtimeFound := false
-	
+
 	// Look for specific metrics
 	for i := 0; i < metrics.ResourceMetrics().Len(); i++ {
 		rm := metrics.ResourceMetrics().At(i)
@@ -58,7 +57,7 @@ func TestScraper(t *testing.T) {
 			sm := rm.ScopeMetrics().At(j)
 			for k := 0; k < sm.Metrics().Len(); k++ {
 				m := sm.Metrics().At(k)
-				
+
 				switch m.Name() {
 				case "test_metric_gauge":
 					gaugeFound = true
@@ -83,7 +82,7 @@ func TestScraper(t *testing.T) {
 			}
 		}
 	}
-	
+
 	assert.True(t, gaugeFound, "Gauge metric not found")
 	assert.True(t, counterFound, "Counter metric not found")
 	assert.True(t, histogramFound, "Histogram metric not found")
@@ -97,7 +96,7 @@ func TestProcessFile(t *testing.T) {
 		receivertest.NewNopCreateSettings(),
 		cfg,
 	)
-	
+
 	// Test with a valid file
 	samplePath := filepath.Join("testdata", "sample.prom")
 	mtime, families, err := scraper.processFile(samplePath)
@@ -105,7 +104,7 @@ func TestProcessFile(t *testing.T) {
 	assert.NotEmpty(t, mtime)
 	assert.NotEmpty(t, families)
 	assert.Equal(t, 4, len(families))
-	
+
 	// Test with a non-existent file
 	_, _, err = scraper.processFile("nonexistent.prom")
 	assert.Error(t, err)
@@ -114,13 +113,13 @@ func TestProcessFile(t *testing.T) {
 func TestHasTimestamps(t *testing.T) {
 	cfg := &Config{}
 	scraper := newTextfileScraper(
-		receivertest.NewNopCreateSettings(), 
+		receivertest.NewNopCreateSettings(),
 		cfg,
 	)
-	
+
 	// Sample without timestamps
 	assert.False(t, scraper.hasTimestamps(map[string]*dto.MetricFamily{}))
-	
+
 	// Create a sample with a timestamp
 	now := time.Now().UnixMilli()
 	metricWithTimestamp := &dto.Metric{
@@ -130,7 +129,7 @@ func TestHasTimestamps(t *testing.T) {
 		},
 		TimestampMs: proto.Int64(now),
 	}
-	
+
 	family := &dto.MetricFamily{
 		Name: proto.String("test_metric"),
 		Help: proto.String("Test metric"),
@@ -139,11 +138,11 @@ func TestHasTimestamps(t *testing.T) {
 			metricWithTimestamp,
 		},
 	}
-	
+
 	familiesMap := map[string]*dto.MetricFamily{
 		"test_metric": family,
 	}
-	
+
 	// Should detect the timestamp
 	assert.True(t, scraper.hasTimestamps(familiesMap))
-} 
+}

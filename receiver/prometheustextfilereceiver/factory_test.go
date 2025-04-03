@@ -24,14 +24,14 @@ func TestCreateReceiver(t *testing.T) {
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig().(*Config)
 	cfg.Directories = []string{"/var/lib/node_exporter/textfile_collector"}
-	
+
 	metricsReceiver, err := factory.CreateMetricsReceiver(
 		context.Background(),
 		receivertest.NewNopCreateSettings(),
 		cfg,
 		consumertest.NewNop(),
 	)
-	
+
 	assert.NoError(t, err)
 	assert.NotNil(t, metricsReceiver)
-} 
+}

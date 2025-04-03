@@ -42,4 +42,4 @@ func createDefaultConfig() component.Config {
 		MetricsPath:               "/metrics",
 		MetricsWaitTime:           500 * time.Millisecond,
 	}
-} 
+}

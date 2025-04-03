@@ -5,7 +5,6 @@ package prometheustextfilereceiver // import "github.com/open-telemetry/opentele
 
 import (
 	"context"
-	"time"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
@@ -52,4 +51,4 @@ func createMetricsReceiver(
 		consumer,
 		scraperhelper.AddScraper(scraper),
 	)
-} 
+}
