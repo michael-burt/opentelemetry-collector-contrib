@@ -1,0 +1,21 @@
+name: prometheustextfilereceiver
+type: prometheustextfile
+status:
+  stability: development
+  distributions: [contrib]
+  codeowners:
+    active: []
+resource_attributes:
+  file.path:
+    description: The absolutepath of the file containing metrics.
+    type: string
+    enabled: true 
+metrics:
+  file.mtime:
+    description: Elapsed time since the last modification of the file or folder, in seconds since Epoch.
+    enabled: true
+    sum:
+      monotonic: false
+      aggregation_temporality: cumulative
+      value_type: int
+    unit: "s"

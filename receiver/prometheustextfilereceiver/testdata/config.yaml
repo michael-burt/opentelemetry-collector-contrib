@@ -1,0 +1,19 @@
+receivers:
+  prometheustextfile:
+  prometheustextfile/customname:
+    directories: 
+      - /var/lib/node_exporter/textfile_collector
+    metrics_wait_time: 1s
+
+processors:
+  nop:
+
+exporters:
+  nop:
+
+service:
+  pipelines:
+    metrics:
+      receivers: [prometheustextfile]
+      processors: [nop]
+      exporters: [nop] 

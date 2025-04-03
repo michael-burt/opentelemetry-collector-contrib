@@ -1,0 +1,25 @@
+# HELP test_metric_gauge A test gauge metric
+# TYPE test_metric_gauge gauge
+test_metric_gauge{label1="value1",label2="value2"} 42.5
+
+# HELP test_metric_counter A test counter metric
+# TYPE test_metric_counter counter
+test_metric_counter{env="prod"} 100
+
+# HELP test_metric_histogram A test histogram metric
+# TYPE test_metric_histogram histogram
+test_metric_histogram_bucket{le="0.1"} 0
+test_metric_histogram_bucket{le="0.5"} 5
+test_metric_histogram_bucket{le="1"} 8
+test_metric_histogram_bucket{le="5"} 10
+test_metric_histogram_bucket{le="+Inf"} 10
+test_metric_histogram_sum 32.4
+test_metric_histogram_count 10
+
+# HELP test_metric_summary A test summary metric
+# TYPE test_metric_summary summary
+test_metric_summary{quantile="0.5"} 0.434
+test_metric_summary{quantile="0.9"} 0.876
+test_metric_summary{quantile="0.99"} 0.998
+test_metric_summary_sum 1245.67
+test_metric_summary_count 42 
