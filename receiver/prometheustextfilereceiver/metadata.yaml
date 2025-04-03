@@ -4,7 +4,6 @@ status:
   class: receiver
   stability:
     alpha: [metrics]
-  distributions: [contrib]
   codeowners:
     active: []
 
@@ -13,7 +12,9 @@ resource_attributes:
     description: The absolutepath of the file containing metrics.
     type: string
     enabled: true 
-    
+
+attributes:
+
 metrics:
   file.mtime:
     description: Elapsed time since the last modification of the file or folder, in seconds since Epoch.

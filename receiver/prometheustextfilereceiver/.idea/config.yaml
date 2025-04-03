@@ -9,7 +9,7 @@ exporters:
 receivers:
   prometheustextfile:
     directories: 
-      - /tmp/test.prom
+      - /Users/mburt/workspace/repos/github.com/opentelemetry-collector-contrib/receiver/prometheustextfilereceiver/.idea/
 
 service:
   pipelines:

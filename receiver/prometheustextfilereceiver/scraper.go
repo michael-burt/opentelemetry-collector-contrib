@@ -1,7 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package prometheustextfilereceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheustextfilereceiver"
+package prometheustextfilereceiver
 
 import (
 	"context"
@@ -19,30 +19,31 @@ import (
 	"go.uber.org/zap"
 
 	dto "github.com/prometheus/client_model/go"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheustextfilereceiver/internal/metadata"
 )
 
 type textfileScraper struct {
-	cfg      *Config
-	settings receiver.CreateSettings
-	logger   *zap.Logger
+	cfg       *Config
+	settings  component.TelemetrySettings
+	logger    *zap.Logger
+	mb        *metadata.MetricsBuilder
+	buildInfo component.BuildInfo
 }
 
 // newTextfileScraper creates a new textfile scraper
-func newTextfileScraper(settings receiver.CreateSettings, cfg *Config) *textfileScraper {
+func newTextfileScraper(settings receiver.Settings, cfg *Config) *textfileScraper {
 	return &textfileScraper{
-		cfg:      cfg,
-		settings: settings,
-		logger:   settings.TelemetrySettings.Logger,
+		cfg:       cfg,
+		settings:  settings.TelemetrySettings,
+		logger:    settings.TelemetrySettings.Logger,
+		mb:        metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings),
+		buildInfo: settings.BuildInfo,
 	}
 }
 
 // start starts the scraper
 func (s *textfileScraper) start(context.Context, component.Host) error {
-	return nil
-}
-
-// shutdown stops the scraper
-func (s *textfileScraper) shutdown(context.Context) error {
 	return nil
 }
 
@@ -61,26 +62,39 @@ func (s *textfileScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 			s.logger.Error("Error processing directory", zap.String("directory", directory), zap.Error(err))
 			scrapeErrors = append(scrapeErrors, err)
 		} else if len(files) == 0 {
-			files = []string{glob}
+			files = []string{}
 			s.logger.Info("No .prom files found in directory", zap.String("directory", directory))
-		} else {
-			allFiles = append(allFiles, files...)
+		}
+		allFiles = append(allFiles, files...)
+		for _, file := range allFiles {
+			s.logger.Info("file found", zap.String("file", file))
 		}
 	}
 
 	// Check that files exist
 	for _, filePath := range allFiles {
 		// unable to locate file
-		if fileInfo, err := os.Stat(filePath); err != nil {
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
 			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to locate file %s: %w", filePath, err))
+			continue
 		}
 		// file is actually directory
 		if fileInfo.IsDir() {
 			scrapeErrors = append(scrapeErrors, fmt.Errorf("file is actually directory: %s", filePath))
 		}
+
+		t, mf, err := s.processFile(filePath)
+		if err != nil {
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("error processing file %s: %w", filePath, err))
+			continue
+		}
+		for _, family := range mf {
+    	s.convertMetricFamily(family, metrics)
+		}
+		successfulFiles[filePath] = t
 	}
 
-	// Add mtime metrics for successful files
 	s.addMtimeMetrics(successfulFiles, metrics)
 
 	// Add error metric if any errors occurred
@@ -145,7 +159,7 @@ func (s *textfileScraper) convertMetricFamily(family *dto.MetricFamily, metrics 
 		rm := metrics.ResourceMetrics().AppendEmpty()
 		sm := rm.ScopeMetrics().AppendEmpty()
 		sm.Scope().SetName("prometheustextfilereceiver")
-		sm.Scope().SetVersion(s.settings.BuildInfo.Version)
+		sm.Scope().SetVersion(s.buildInfo.Version)
 
 		m := sm.Metrics().AppendEmpty()
 		m.SetName(*family.Name)
@@ -237,7 +251,7 @@ func (s *textfileScraper) addMtimeMetrics(mtimes map[string]time.Time, metrics p
 	rm := metrics.ResourceMetrics().AppendEmpty()
 	sm := rm.ScopeMetrics().AppendEmpty()
 	sm.Scope().SetName("prometheustextfilereceiver")
-	sm.Scope().SetVersion(s.settings.BuildInfo.Version)
+	sm.Scope().SetVersion(s.buildInfo.Version)
 
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("textfile_mtime_seconds")
@@ -259,7 +273,7 @@ func (s *textfileScraper) addScrapeErrorMetric(metrics pmetric.Metrics) {
 	rm := metrics.ResourceMetrics().AppendEmpty()
 	sm := rm.ScopeMetrics().AppendEmpty()
 	sm.Scope().SetName("prometheustextfilereceiver")
-	sm.Scope().SetVersion(s.settings.BuildInfo.Version)
+	sm.Scope().SetVersion(s.buildInfo.Version)
 
 	m := sm.Metrics().AppendEmpty()
 	m.SetName("textfile_scrape_error")

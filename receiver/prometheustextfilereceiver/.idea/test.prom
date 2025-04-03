@@ -1,1 +1,61 @@
-test.prom
+# HELP test_metric A simple test metric
+# TYPE test_metric gauge
+foo{bar="1"} 9
+# HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 2.7533e-05
+go_gc_duration_seconds{quantile="0.25"} 3.871e-05
+go_gc_duration_seconds{quantile="0.5"} 4.725e-05
+go_gc_duration_seconds{quantile="0.75"} 6.9402e-05
+go_gc_duration_seconds{quantile="1"} 0.000243507
+go_gc_duration_seconds_sum 2.411260238
+go_gc_duration_seconds_count 38688
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status codev.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 68830
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0
+# HELP controller_runtime_webhook_latency_seconds Histogram of the latency of processing admission requests
+# TYPE controller_runtime_webhook_latency_seconds histogram
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="0.005"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="0.01"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="0.025"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="0.05"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="0.1"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="0.25"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="0.5"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="1"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="2.5"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="5"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="10"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/convert",le="+Inf"} 134
+controller_runtime_webhook_latency_seconds_sum{webhook="/convert"} 0.07675210499999999
+controller_runtime_webhook_latency_seconds_count{webhook="/convert"} 134
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="0.005"} 668
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="0.01"} 669
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="0.025"} 670
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="0.05"} 670
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="0.1"} 670
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="0.25"} 671
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="0.5"} 671
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="1"} 671
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="2.5"} 671
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="5"} 671
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="10"} 671
+controller_runtime_webhook_latency_seconds_bucket{webhook="/mutate-v1-pod",le="+Inf"} 671
+controller_runtime_webhook_latency_seconds_sum{webhook="/mutate-v1-pod"} 0.46479457299999954
+controller_runtime_webhook_latency_seconds_count{webhook="/mutate-v1-pod"} 671
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="0.005"} 3
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="0.01"} 3
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="0.025"} 4
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="0.05"} 4
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="0.1"} 4
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="0.25"} 4
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="0.5"} 4
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="1"} 4
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="2.5"} 4
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="5"} 4
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="10"} 4
+controller_runtime_webhook_latency_seconds_bucket{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector",le="+Inf"} 4
+controller_runtime_webhook_latency_seconds_sum{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector"} 0.0207465
+controller_runtime_webhook_latency_seconds_count{webhook="/validate-opentelemetry-io-v1beta1-opentelemetrycollector"} 4
