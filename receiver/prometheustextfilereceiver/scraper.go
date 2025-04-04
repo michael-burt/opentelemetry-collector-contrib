@@ -90,7 +90,7 @@ func (s *textfileScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 			continue
 		}
 		for _, family := range mf {
-    	s.convertMetricFamily(family, metrics)
+			s.convertMetricFamily(family, metrics)
 		}
 		successfulFiles[filePath] = t
 	}
