@@ -1,7 +1,7 @@
 # HELP test_metric A simple test metric
 # TYPE test_metric gauge
 foo{bar="1"} 9
-# HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# HELP go_gc_durationf_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
 # TYPE go_gc_duration_seconds summary
 go_gc_duration_seconds{quantile="0"} 2.7533e-05
 go_gc_duration_seconds{quantile="0.25"} 3.871e-05
