@@ -27,7 +27,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 
 	promCfg, ok := cfg.(*Config)
 	require.True(t, ok, "config is not of type *Config")
-
+	
 	assert.Equal(t, 60*time.Second, promCfg.CollectionInterval)
 	assert.Equal(t, time.Second, promCfg.InitialDelay)
 	assert.Empty(t, promCfg.Directories)
@@ -42,7 +42,7 @@ func TestNewReceiver(t *testing.T) {
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig().(*Config)
 	cfg.Directories = []string{"/path/to/metrics"}
-
+	
 	consumer := consumertest.NewNop()
 	receiver, err := newReceiver(
 		context.Background(),
@@ -50,14 +50,14 @@ func TestNewReceiver(t *testing.T) {
 		cfg,
 		consumer,
 	)
-
+	
 	assert.NoError(t, err)
 	assert.NotNil(t, receiver)
 }
 
 func TestNewReceiverWithInvalidConfig(t *testing.T) {
 	invalidCfg := &struct{}{}
-
+	
 	consumer := consumertest.NewNop()
 	receiver, err := newReceiver(
 		context.Background(),
@@ -65,7 +65,7 @@ func TestNewReceiverWithInvalidConfig(t *testing.T) {
 		invalidCfg,
 		consumer,
 	)
-
+	
 	assert.Error(t, err)
 	assert.Nil(t, receiver)
 	assert.Equal(t, errConfig, err)
