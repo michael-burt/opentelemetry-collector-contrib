@@ -55,6 +55,7 @@ func newReceiver(
 		return nil, errConfig
 	}
 	mp := newTextfileScraper(settings, promConfig)
+	
 	s, err := collectorscraper.NewMetrics(mp.scrape, collectorscraper.WithStart(mp.start))
 	if err != nil {
 		return nil, err
