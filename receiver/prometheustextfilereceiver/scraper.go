@@ -11,14 +11,13 @@ import (
 	"sort"
 	"time"
 
+	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
-
-	dto "github.com/prometheus/client_model/go"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheustextfilereceiver/internal/metadata"
 )
@@ -48,7 +47,7 @@ func (s *textfileScraper) start(context.Context, component.Host) error {
 }
 
 // scrape collects metrics from prometheus text files
-func (s *textfileScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
+func (s *textfileScraper) scrape(_ context.Context) (pmetric.Metrics, error) {
 	metrics := pmetric.NewMetrics()
 
 	var scrapeErrors []error
@@ -96,17 +95,7 @@ func (s *textfileScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 	}
 
 	s.addMtimeMetrics(successfulFiles, metrics)
-
-	// Add error metric if any errors occurred
-	if len(scrapeErrors) > 0 {
-		s.addScrapeErrorMetric(metrics)
-		// Log errors but continue with partial success
-		for _, err := range scrapeErrors {
-			s.logger.Error("Error during prometheus textfile scraping", zap.Error(err))
-		}
-	}
-
-	return metrics, nil
+	return metrics, scrapeErrors
 }
 
 // processFile reads and parses a prometheus textfile and returns prometheus protos of the parsed metrics
@@ -266,21 +255,4 @@ func (s *textfileScraper) addMtimeMetrics(mtimes map[string]time.Time, metrics p
 		dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Now()))
 		dp.Attributes().PutStr("file", file)
 	}
-}
-
-// addScrapeErrorMetric adds the scrape error metric
-func (s *textfileScraper) addScrapeErrorMetric(metrics pmetric.Metrics) {
-	rm := metrics.ResourceMetrics().AppendEmpty()
-	sm := rm.ScopeMetrics().AppendEmpty()
-	sm.Scope().SetName("prometheustextfilereceiver")
-	sm.Scope().SetVersion(s.buildInfo.Version)
-
-	m := sm.Metrics().AppendEmpty()
-	m.SetName("textfile_scrape_error")
-	m.SetDescription("1 if there was an error opening or reading a file, 0 otherwise")
-
-	gauge := m.SetEmptyGauge()
-	dp := gauge.DataPoints().AppendEmpty()
-	dp.SetDoubleValue(1.0)
-	dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Now()))
 }

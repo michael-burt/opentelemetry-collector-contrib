@@ -33,5 +33,5 @@ func TestConfigWithMultipleDirectories(t *testing.T) {
 	cfg.Directories = []string{"/path/to/metrics1", "/path/to/metrics2"}
 
 	assert.NoError(t, cfg.Validate())
-	assert.Equal(t, 3, len(cfg.Directories))
+	assert.Len(t, cfg.Directories, 2, "there should be 2 directories")
 }
