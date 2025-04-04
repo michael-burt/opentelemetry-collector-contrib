@@ -5,6 +5,7 @@ package prometheustextfilereceiver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -95,7 +96,7 @@ func (s *textfileScraper) scrape(_ context.Context) (pmetric.Metrics, error) {
 	}
 
 	s.addMtimeMetrics(successfulFiles, metrics)
-	return metrics, scrapeErrors
+	return metrics, errors.Join(scrapeErrors...)
 }
 
 // processFile reads and parses a prometheus textfile and returns prometheus protos of the parsed metrics
