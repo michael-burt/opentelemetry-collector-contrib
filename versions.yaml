@@ -3,10 +3,9 @@
 
 module-sets:
   contrib-base:
-    version: v0.123.0
+    version: v0.125.0
     modules:
       - github.com/open-telemetry/opentelemetry-collector-contrib
-      - github.com/open-telemetry/opentelemetry-collector-contrib/cmd/checkapi
       - github.com/open-telemetry/opentelemetry-collector-contrib/cmd/opampsupervisor
       - github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen
       - github.com/open-telemetry/opentelemetry-collector-contrib/confmap/provider/aesprovider
@@ -83,6 +82,7 @@ module-sets:
       - github.com/open-telemetry/opentelemetry-collector-contrib/extension/basicauthextension
       - github.com/open-telemetry/opentelemetry-collector-contrib/extension/bearertokenauthextension
       - github.com/open-telemetry/opentelemetry-collector-contrib/extension/cgroupruntimeextension
+      - github.com/open-telemetry/opentelemetry-collector-contrib/extension/datadogextension
       - github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding
       - github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding/avrologencodingextension
       - github.com/open-telemetry/opentelemetry-collector-contrib/extension/encoding/awscloudwatchmetricstreamsencodingextension
@@ -184,6 +184,7 @@ module-sets:
       - github.com/open-telemetry/opentelemetry-collector-contrib/processor/datadogsemanticsprocessor
       - github.com/open-telemetry/opentelemetry-collector-contrib/processor/deltatocumulativeprocessor
       - github.com/open-telemetry/opentelemetry-collector-contrib/processor/deltatorateprocessor
+      - github.com/open-telemetry/opentelemetry-collector-contrib/processor/dnslookupprocessor
       - github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor
       - github.com/open-telemetry/opentelemetry-collector-contrib/processor/geoipprocessor
       - github.com/open-telemetry/opentelemetry-collector-contrib/processor/groupbyattrsprocessor
