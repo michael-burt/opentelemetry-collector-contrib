@@ -1,0 +1,20 @@
+type: mtail
+
+status:
+  class: receiver
+  stability:
+    development: [metrics]
+  distributions: []
+  codeowners:
+    active: [michael-burt]
+
+tests:
+  config:
+    programs: testdata/lifecycle/simple.mtail
+    logs: [testdata/lifecycle/simple.log]
+    collection_interval: 100ms
+    poll_interval: 50ms
+  goleak:
+    ignore:
+      top:
+        - "github.com/golang/glog.(*fileSink).flushDaemon"
