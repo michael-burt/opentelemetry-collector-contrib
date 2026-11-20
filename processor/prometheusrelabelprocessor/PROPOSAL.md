@@ -46,9 +46,11 @@ steps. One converts OpenTelemetry metrics to Prometheus samples.
 component converts the remaining samples back to OpenTelemetry.
 [Alloy engines][alloy-engines] · [Convert to Prometheus][alloy-to-prom] · [Convert back][alloy-from-prom]
 
-The round trip can lose information. For example, Alloy converts integers to
-floating-point values, which can round large numbers. Our processor keeps
-the original OpenTelemetry data point and changes only what the rules affect.
+Alloy converts integer metric values to `float64`. For example, `2^53 + 1`
+(`9007199254740993` as an `int64`) rounds to `9007199254740992` as a `float64`.
+Converting it back to `int64` still gives `9007199254740992`. Our processor
+keeps the original OpenTelemetry data point and changes only what the rules
+affect.
 [Numeric conversion][alloy-numbers]
 
 ## Configuration and label mapping
