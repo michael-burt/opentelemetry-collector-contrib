@@ -37,8 +37,34 @@ metric relabeling through Prometheus's scrape manager. Prometheus also proposes
 [`receive_relabel_configs` for OTLP and Remote Write ingestion][receive-relabel],
 with the configuration placement still under review. That proposal applies rules
 before Prometheus storage. This processor applies them before Collector export.
-Alloy's [`prometheus.relabel`][alloy-relabel] is a precedent for a dedicated
-relabeling stage between components that exchange Prometheus series.
+
+## Grafana Alloy precedent
+
+Grafana Alloy is a Collector distribution with two pipeline runtimes. Its
+embedded OTel Engine runs the upstream Collector with YAML configuration.
+`prometheus.relabel` belongs to Alloy's Default Engine, where components can
+exchange Prometheus samples through an in-process appender.
+[Alloy engines][alloy-engines] · [Alloy relabel component][alloy-relabel-code]
+
+Alloy's `otelcol.exporter.prometheus` accepts `pmetric.Metrics` and appends
+translated samples. `prometheus.relabel` uses the same rule evaluator for
+samples, native histograms, exemplars, metadata, and start-timestamp markers.
+It passes a zero series reference downstream so the next appender resolves
+series identity from the new labels.
+Alloy's `otelcol.receiver.prometheus` builds OTLP metrics when the appender
+commits. This provides a reference for the conversion boundary and for keeping
+all data associated with a renamed or dropped series together.
+[Alloy forward conversion][alloy-to-prom] · [Relabel hooks][alloy-relabel-hooks] · [Alloy return conversion][alloy-from-prom]
+
+The return conversion reconstructs resources and scopes from Prometheus
+labels and info metrics, and reads metric family metadata from a scrape
+metadata store. On an OTLP input path, Alloy fanout supplies an empty store
+when the context lacks one, and the reverse bridge's v1 `UpdateMetadata`
+method is a no-op. A round trip through this path therefore cannot guarantee
+the original metric types, resource and scope attributes, or numeric precision.
+Keep the original OTLP data point and metric descriptor available during our
+return conversion so relabeling only changes the intended fields.
+[Alloy fanout context][alloy-fanout] · [Resource and scope mapping][alloy-context] · [Numeric conversion][alloy-numbers]
 
 ## Configuration and label mapping
 
@@ -173,7 +199,11 @@ point independently, a classic histogram with `B` explicit bounds yields
 `B + 2` series plus one if it has a sum. A summary with `Q` quantiles yields
 `Q + 2` series. Drop-heavy policies still pay for the forward translation.
 Peak heap can include the original batch, translated samples and label sets,
-and the output batch.
+and the output batch. Alloy's appender boundary suggests a lower-allocation
+prototype that evaluates each translated label set as it is emitted. It can
+retain the relabeling results required for family reconstruction and collision
+checks without buffering a full intermediate batch of Prometheus samples.
+[Alloy forward conversion][alloy-to-prom] · [Relabel hooks][alloy-relabel-hooks]
 
 Compare the processor with a baseline pipeline and with an exporter prototype
 that relabels the translated series before constructing Remote Write requests.
@@ -200,8 +230,11 @@ no rules, rules with no matches, drop-heavy and rename-heavy rules, and vary
 batch size, label cardinality, and bucket or quantile count. Start with
 batch-local state. Test caching rule results by input label set separately
 under repeated labels and churn before deciding whether a bounded cache is
-worth its memory. Both Alloy and the Prometheus receive-relabeling PR have
-cache designs to compare. [Alloy relabel cache][alloy-relabel] · [Prometheus #19675][receive-relabel]
+worth its memory. Alloy caches rewritten label sets and drop decisions, clears
+the cache on configuration updates, and evicts entries on stale markers. Its
+default LRU caps the entry count, while its optional TTL cache tracks active
+series without a hard size cap. Benchmark cache hits and misses separately
+from the two conversions. [Alloy relabel cache][alloy-cache] · [Alloy rule evaluation][alloy-evaluation] · [Prometheus #19675][receive-relabel]
 
 Test the same label sets against Prometheus for rule defaults and ordering.
 Assert OTLP round-trip behavior for typed attributes, resources and scopes,
@@ -215,7 +248,16 @@ translation strategy.
 [relabel-config]: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config
 [scrape-receiver]: ../../receiver/prometheusreceiver/README.md
 [receive-relabel]: https://github.com/prometheus/prometheus/pull/19675
-[alloy-relabel]: https://grafana.com/docs/alloy/latest/reference/components/prometheus/prometheus.relabel/
+[alloy-engines]: https://grafana.com/docs/grafana-cloud/send-data/alloy/introduction/otel_alloy/#how-the-engines-fit-together
+[alloy-relabel-code]: https://github.com/grafana/alloy/blob/64f2c2e324cc86b485f40136cac41d4670f55c46/internal/component/prometheus/relabel/relabel.go#L29-L65
+[alloy-to-prom]: https://github.com/grafana/alloy/blob/64f2c2e324cc86b485f40136cac41d4670f55c46/internal/component/otelcol/exporter/prometheus/internal/convert/convert.go#L128-L153
+[alloy-relabel-hooks]: https://github.com/grafana/alloy/blob/64f2c2e324cc86b485f40136cac41d4670f55c46/internal/component/prometheus/relabel/relabel.go#L189-L272
+[alloy-from-prom]: https://github.com/grafana/alloy/blob/64f2c2e324cc86b485f40136cac41d4670f55c46/internal/component/otelcol/receiver/prometheus/internal/transaction.go#L566-L595
+[alloy-fanout]: https://github.com/grafana/alloy/blob/64f2c2e324cc86b485f40136cac41d4670f55c46/internal/component/prometheus/fanout.go#L186-L208
+[alloy-context]: https://github.com/grafana/alloy/blob/64f2c2e324cc86b485f40136cac41d4670f55c46/internal/component/otelcol/receiver/prometheus/internal/transaction.go#L428-L466
+[alloy-numbers]: https://github.com/grafana/alloy/blob/64f2c2e324cc86b485f40136cac41d4670f55c46/internal/component/otelcol/exporter/prometheus/internal/convert/convert.go#L480-L486
+[alloy-cache]: https://grafana.com/docs/alloy/latest/reference/components/prometheus/prometheus.relabel/#arguments
+[alloy-evaluation]: https://github.com/grafana/alloy/blob/64f2c2e324cc86b485f40136cac41d4670f55c46/internal/component/prometheus/relabel/relabel.go#L302-L356
 [relabel-code]: https://github.com/prometheus/prometheus/blob/v0.316.0/model/relabel/relabel.go
 [translation-strategy]: https://prometheus.io/docs/guides/opentelemetry/#utf-8
 [compat]: https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/
