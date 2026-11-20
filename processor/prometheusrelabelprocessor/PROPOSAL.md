@@ -25,12 +25,12 @@ processor and defines how to compare it with the exporter approach.
 Prometheus uses the same [`relabel_config`][relabel-config] syntax at different
 points in its pipeline. The stage determines which labels the rules can see.
 
-| Configuration | Operates on | Stage |
-| --- | --- | --- |
-| `relabel_configs` | Target labels, including service discovery metadata | Before scraping |
-| `metric_relabel_configs` in a scrape job | Labels on scraped samples | After applying target labels, before ingestion |
-| `write_relabel_configs` | Series labels for a Remote Write destination | After adding external labels, before sending |
-| `metric_relabel_configs` in this proposal | Labels on time series translated from Collector data points | Inside the configured Collector metrics pipeline |
+| Configuration | Operates on | Stage | OpenTelemetry Collector support today |
+| --- | --- | --- | --- |
+| `relabel_configs` | Target labels, including service discovery metadata | Before scraping | [Prometheus receiver][scrape-receiver], under `config.scrape_configs[].relabel_configs` |
+| `metric_relabel_configs` in a scrape job | Labels on scraped samples | After applying target labels, before ingestion | [Prometheus receiver][scrape-receiver], under `config.scrape_configs[].metric_relabel_configs` |
+| `write_relabel_configs` | Series labels for a Remote Write destination | After adding external labels, before sending | The `prometheus_remote_write` exporter has an [open feature request][write-request] for this option |
+| `metric_relabel_configs` in this proposal | Labels on time series translated from Collector data points | Inside the configured Collector metrics pipeline | Proposed here as the `prometheus_relabel` processor |
 
 The Collector's [Prometheus receiver][scrape-receiver] already runs scrape-time
 metric relabeling through Prometheus's scrape manager. Prometheus also proposes
