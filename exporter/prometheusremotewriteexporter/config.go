@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	remoteapi "github.com/prometheus/client_golang/exp/api/remote"
+	"github.com/prometheus/common/model"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confighttp"
 	"go.opentelemetry.io/collector/config/configoptional"
@@ -19,10 +20,13 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/resourcetotelemetry"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/prometheus/relabelconfig"
 )
 
 // Config defines configuration for Remote Write exporter.
 type Config struct {
+	WriteRelabelConfigs relabelconfig.Rules `mapstructure:"write_relabel_configs"`
+
 	TimeoutSettings exporterhelper.TimeoutConfig `mapstructure:",squash"` // squash ensures fields are correctly decoded in embedded struct.
 	BackOffConfig   configretry.BackOffConfig    `mapstructure:"retry_on_failure"`
 
@@ -216,8 +220,18 @@ func (cfg *Config) Unmarshal(conf *confmap.Conf) error {
 	return nil
 }
 
-// Validate checks if the exporter configuration is valid
+func (cfg *Config) writeRelabelValidation() model.ValidationScheme {
+	if cfg.TranslationStrategy == noUTF8EscapingWithSuffixes || cfg.TranslationStrategy == noTranslation {
+		return model.UTF8Validation
+	}
+	return model.LegacyValidation
+}
+
+// Validate checks if the exporter configuration is valid.
 func (cfg *Config) Validate() error {
+	if _, err := cfg.WriteRelabelConfigs.Compile(cfg.writeRelabelValidation()); err != nil {
+		return fmt.Errorf("write_relabel_configs: %w", err)
+	}
 	//nolint:staticcheck // check deprecated fields
 	if cfg.ResourceConstantLabels.Enabled || cfg.ResourceConstantLabels.ExcludeServiceAttributes {
 		return errors.New("enabled and exclude_service_attributes are not supported under resource_constant_labels; use included and excluded instead")

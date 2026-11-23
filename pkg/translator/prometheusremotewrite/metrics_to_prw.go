@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/prometheus/otlptranslator"
+	"github.com/prometheus/prometheus/model/relabel"
 	"github.com/prometheus/prometheus/prompb"
 	prom "github.com/prometheus/prometheus/storage/remote/otlptranslator/prometheusremotewrite"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -18,6 +19,7 @@ import (
 )
 
 type Settings struct {
+	WriteRelabelConfigs []*relabel.Config
 	Namespace           string
 	ExternalLabels      map[string]string
 	DisableTargetInfo   bool
@@ -33,19 +35,52 @@ type Settings struct {
 
 // FromMetrics converts pmetric.Metrics to Prometheus remote write format.
 func FromMetrics(md pmetric.Metrics, settings Settings) (map[string]*prompb.TimeSeries, error) {
+	series, _, err := fromMetrics(md, settings, false)
+	return series, err
+}
+
+// FromMetricsWithMetadata translates v1 series together with metadata for the
+// families that survive write relabeling.
+func FromMetricsWithMetadata(md pmetric.Metrics, settings Settings) (map[string]*prompb.TimeSeries, []*prompb.MetricMetadata, error) {
+	return fromMetrics(md, settings, true)
+}
+
+func fromMetrics(md pmetric.Metrics, settings Settings, wantMetadata bool) (map[string]*prompb.TimeSeries, []*prompb.MetricMetadata, error) {
 	c := newPrometheusConverter(settings)
-	errs := c.fromMetrics(md, settings)
+	if wantMetadata && c.relabeler != nil {
+		c.familyNames = make(map[string]struct{})
+		c.outputMetadata = make(map[string]*prompb.MetricMetadata)
+	}
+	err := multierr.Append(c.fromMetrics(md, settings), c.relabeler.err())
 	tss := c.timeSeries()
 	out := make(map[string]*prompb.TimeSeries, len(tss))
 	for i := range tss {
 		out[strconv.Itoa(i)] = &tss[i]
 	}
-
-	return out, errs
+	if !wantMetadata {
+		return out, nil, err
+	}
+	if c.relabeler == nil {
+		mds, mdErr := OtelMetricsToMetadata(md, settings)
+		return out, mds, multierr.Append(err, mdErr)
+	}
+	mds := make([]*prompb.MetricMetadata, 0, len(c.outputMetadata))
+	for _, entry := range c.outputMetadata {
+		if entry != nil {
+			mds = append(mds, entry)
+		}
+	}
+	sort.Slice(mds, func(i, j int) bool { return mds[i].MetricFamilyName < mds[j].MetricFamilyName })
+	return out, mds, err
 }
 
 // prometheusConverter converts from OTel write format to Prometheus write format.
 type prometheusConverter struct {
+	relabeler      *seriesRelabeler
+	family         string
+	familyNames    map[string]struct{}
+	outputMetadata map[string]*prompb.MetricMetadata
+
 	unique    map[uint64]*prompb.TimeSeries
 	conflicts map[uint64][]*prompb.TimeSeries
 
@@ -80,6 +115,7 @@ func newPrometheusConverter(settings Settings) *prometheusConverter {
 	withSuffixes, utf8Allowed := getTranslationConfiguration(settings)
 
 	return &prometheusConverter{
+		relabeler:   newSeriesRelabeler(settings),
 		unique:      map[uint64]*prompb.TimeSeries{},
 		conflicts:   map[uint64][]*prompb.TimeSeries{},
 		metricNamer: otlptranslator.MetricNamer{WithMetricSuffixes: withSuffixes, Namespace: settings.Namespace, UTF8Allowed: utf8Allowed},
@@ -118,6 +154,11 @@ func (c *prometheusConverter) fromMetrics(md pmetric.Metrics, settings Settings)
 				if err != nil {
 					errs = multierr.Append(errs, err)
 					continue
+				}
+
+				if c.familyNames != nil {
+					c.family = promName
+					clear(c.familyNames)
 				}
 
 				// handle individual metrics based on type
@@ -172,8 +213,21 @@ func (c *prometheusConverter) fromMetrics(md pmetric.Metrics, settings Settings)
 				default:
 					errs = multierr.Append(errs, errors.New("unsupported metric type"))
 				}
+				for family := range c.familyNames {
+					entry := prompb.MetricMetadata{
+						MetricFamilyName: family, Type: otelMetricTypeToPromMetricType(metric),
+						Help: metric.Description(), Unit: c.unitNamer.Build(metric.Unit()),
+					}
+					existing, ok := c.outputMetadata[family]
+					if !ok {
+						c.outputMetadata[family] = &entry
+					} else if existing != nil && (existing.Type != entry.Type || existing.Unit != entry.Unit || existing.Help != entry.Help) {
+						c.outputMetadata[family] = nil
+					}
+				}
 			}
 		}
+		c.family = ""
 		errs = multierr.Append(errs, c.addResourceTargetInfo(resource, settings, mostRecentTimestamp))
 	}
 
@@ -226,8 +280,10 @@ func (*prometheusConverter) addExemplars(dataPoint pmetric.HistogramDataPoint, b
 	sort.Sort(byBucketBoundsData(bucketBounds))
 	for _, exemplar := range exemplars {
 		for _, bound := range bucketBounds {
-			if len(bound.ts.Samples) > 0 && exemplar.Value <= bound.bound {
-				bound.ts.Exemplars = append(bound.ts.Exemplars, exemplar)
+			if exemplar.Value <= bound.bound {
+				if bound.ts != nil && len(bound.ts.Samples) > 0 {
+					bound.ts.Exemplars = append(bound.ts.Exemplars, exemplar)
+				}
 				break
 			}
 		}
@@ -245,6 +301,8 @@ func (c *prometheusConverter) addSample(sample *prompb.Sample, lbls []prompb.Lab
 	}
 
 	ts, _ := c.getOrCreateTimeSeries(lbls)
-	ts.Samples = append(ts.Samples, *sample)
+	if ts != nil {
+		ts.Samples = append(ts.Samples, *sample)
+	}
 	return ts
 }

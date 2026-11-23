@@ -49,6 +49,7 @@ As a result, the following parameters are also required under `http.tls:` (or to
 The following settings can be optionally configured:
 
 - `external_labels`: map of labels names and values to be attached to each metric data point
+- `write_relabel_configs`: ordered [Prometheus relabel rules](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config) applied to final series labels, including external labels, before grouping. Works with Remote Write v1 and v2. Rules act on individual classic histogram and summary series.
 - `http.headers` (or top-level `headers` for backward compatibility): additional headers attached to each HTTP request.
   - *Note the following headers cannot be changed: `Content-Encoding`, `Content-Type`, `X-Prometheus-Remote-Write-Version`, and `User-Agent`.*
 - `namespace`: prefix attached to each exported metric name.

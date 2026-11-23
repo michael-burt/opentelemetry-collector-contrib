@@ -5,6 +5,9 @@ OpenTelemetry metrics (`pmetric.Metrics`) to Prometheus time series in memory,
 applies Prometheus relabeling rules to the series label sets, and converts the
 result back to `pmetric.Metrics`.
 
+The [implementation plan](./IMPLEMENTATION_PLAN.md) covers the prototype sequence,
+data preservation, failure handling, and performance comparison.
+
 ## Motivation
 
 A Collector can send the same input metrics to multiple destinations. An

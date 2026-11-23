@@ -213,6 +213,10 @@ func newPRWTelemetry(set exporter.Settings, endpointURL *url.URL) (prwTelemetry,
 
 // newPRWExporter initializes a new prwExporter instance and sets fields accordingly.
 func newPRWExporter(cfg *Config, set exporter.Settings) (*prwExporter, error) {
+	rules, err := cfg.WriteRelabelConfigs.Compile(cfg.writeRelabelValidation())
+	if err != nil {
+		return nil, fmt.Errorf("write_relabel_configs: %w", err)
+	}
 	sanitizedLabels, err := validateAndSanitizeExternalLabels(cfg)
 	if err != nil {
 		return nil, err
@@ -278,6 +282,7 @@ func newPRWExporter(cfg *Config, set exporter.Settings) (*prwExporter, error) {
 		RemoteWriteProtoMsg: cfg.RemoteWriteProtoMsg,
 		includeMetadataKeys: cfg.IncludeMetadataKeys,
 		exporterSettings: prometheusremotewrite.Settings{
+			WriteRelabelConfigs:             rules,
 			Namespace:                       cfg.Namespace,
 			ExternalLabels:                  sanitizedLabels,
 			DisableTargetInfo:               !cfg.TargetInfo.Enabled,
@@ -414,15 +419,22 @@ func appendUnsentRequestsError(ctx context.Context, errs error, unsent, total in
 }
 
 func (prwe *prwExporter) pushMetricsV1(ctx context.Context, md pmetric.Metrics) error {
-	tsMap, err := prometheusremotewrite.FromMetrics(md, prwe.exporterSettings)
+	var tsMap map[string]*prompb.TimeSeries
+	var m []*prompb.MetricMetadata
+	var err error
+	withRelabeledMetadata := prwe.exporterSettings.SendMetadata && len(prwe.exporterSettings.WriteRelabelConfigs) != 0
+	if withRelabeledMetadata {
+		tsMap, m, err = prometheusremotewrite.FromMetricsWithMetadata(md, prwe.exporterSettings)
+	} else {
+		tsMap, err = prometheusremotewrite.FromMetrics(md, prwe.exporterSettings)
+	}
 	if err != nil {
 		prwe.telemetry.recordTranslationFailure(ctx)
 		prwe.settings.Logger.Debug("failed to translate metrics, exporting remaining metrics", zap.Error(err), zap.Int("translated", len(tsMap)))
 	}
 	prwe.telemetry.recordTranslatedTimeSeries(ctx, len(tsMap))
 
-	var m []*prompb.MetricMetadata
-	if prwe.exporterSettings.SendMetadata {
+	if prwe.exporterSettings.SendMetadata && !withRelabeledMetadata {
 		m, err = prometheusremotewrite.OtelMetricsToMetadata(md, prwe.exporterSettings)
 		if err != nil {
 			prwe.settings.Logger.Debug("failed to translate metrics into metadata, exporting remaining metadata", zap.Error(err), zap.Int("translated", len(m)))

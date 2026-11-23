@@ -71,6 +71,9 @@ func (c *prometheusConverterV2) addExponentialHistogramDataPoints(dataPoints pme
 		}
 
 		ts := c.getOrCreateTimeSeries(lbls, metadata)
+		if ts == nil {
+			continue
+		}
 		ts.Histograms = append(ts.Histograms, histogram)
 
 		exemplars := getPromExemplarsV2[pmetric.ExponentialHistogramDataPoint](pt, symbolize)

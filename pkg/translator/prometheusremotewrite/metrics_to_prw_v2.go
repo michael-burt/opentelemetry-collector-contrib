@@ -21,7 +21,7 @@ import (
 // FromMetricsV2 converts pmetric.Metrics to Prometheus remote write format 2.0.
 func FromMetricsV2(md pmetric.Metrics, settings Settings) (map[string]*writev2.TimeSeries, writev2.SymbolsTable, error) {
 	c := newPrometheusConverterV2(settings)
-	errs := c.fromMetrics(md, settings)
+	errs := multierr.Append(c.fromMetrics(md, settings), c.relabeler.err())
 	tss := c.timeSeries()
 	out := make(map[string]*writev2.TimeSeries, len(tss))
 	for i := range tss {
@@ -33,7 +33,8 @@ func FromMetricsV2(md pmetric.Metrics, settings Settings) (map[string]*writev2.T
 
 // prometheusConverterV2 converts from OTLP to Prometheus write 2.0 format.
 type prometheusConverterV2 struct {
-	unique map[uint64]*writev2.TimeSeries
+	relabeler *seriesRelabeler
+	unique    map[uint64]*writev2.TimeSeries
 	// conflicts is a map of time series signatures(an unique identifier for TS labels) to a list of TSs with the same signature.
 	// this is used to handle conflicts that occur when multiple TSs have the same labels or when different labels generate the same signature.
 	conflicts map[uint64][]*writev2.TimeSeries
@@ -56,6 +57,7 @@ func newPrometheusConverterV2(settings Settings) *prometheusConverterV2 {
 	withSuffixes, utf8Allowed := getTranslationConfiguration(settings)
 
 	return &prometheusConverterV2{
+		relabeler:   newSeriesRelabeler(settings),
 		unique:      map[uint64]*writev2.TimeSeries{},
 		conflicts:   map[uint64][]*writev2.TimeSeries{},
 		symbolTable: writev2.NewSymbolTable(),
@@ -183,8 +185,10 @@ func (c *prometheusConverterV2) addExemplars(dataPoint pmetric.HistogramDataPoin
 	sort.Sort(byBucketBoundsDataV2(bucketBounds))
 	for _, exemplar := range exemplars {
 		for _, bound := range bucketBounds {
-			if len(bound.ts.Samples) > 0 && exemplar.Value <= bound.bound {
-				bound.ts.Exemplars = append(bound.ts.Exemplars, exemplar)
+			if exemplar.Value <= bound.bound {
+				if bound.ts != nil && len(bound.ts.Samples) > 0 {
+					bound.ts.Exemplars = append(bound.ts.Exemplars, exemplar)
+				}
 				break
 			}
 		}
@@ -193,7 +197,9 @@ func (c *prometheusConverterV2) addExemplars(dataPoint pmetric.HistogramDataPoin
 
 func (c *prometheusConverterV2) addSample(sample *writev2.Sample, lbls []prompb.Label, metadata metadata) *writev2.TimeSeries {
 	ts := c.getOrCreateTimeSeries(lbls, metadata)
-	ts.Samples = append(ts.Samples, *sample)
+	if ts != nil {
+		ts.Samples = append(ts.Samples, *sample)
+	}
 	return ts
 }
 
@@ -212,6 +218,12 @@ func isSameMetricV2(ts1, ts2 *writev2.TimeSeries) bool {
 
 // getOrCreateTimeSeries returns the time series corresponding to the label set
 func (c *prometheusConverterV2) getOrCreateTimeSeries(lbls []prompb.Label, metadata metadata) *writev2.TimeSeries {
+	if c.relabeler != nil {
+		lbls = c.relabeler.apply(lbls)
+		if len(lbls) == 0 {
+			return nil
+		}
+	}
 	signature := timeSeriesSignature(lbls)
 	ts := c.unique[signature]
 	buf := make([]uint32, 0, len(lbls)*2)

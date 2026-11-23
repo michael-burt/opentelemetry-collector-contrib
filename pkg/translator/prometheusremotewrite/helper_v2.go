@@ -163,9 +163,11 @@ func (c *prometheusConverterV2) addHistogramDataPoints(dataPoints pmetric.Histog
 				errs = multierr.Append(errs, convErr)
 			} else {
 				ts := c.getOrCreateTimeSeries(createLabels(baseName, baseLabels), metadata)
-				ts.Histograms = append(ts.Histograms, h)
-				symbolize := func(s string) uint32 { return c.symbolTable.Symbolize(s) }
-				ts.Exemplars = append(ts.Exemplars, getPromExemplarsV2[pmetric.HistogramDataPoint](pt, symbolize)...)
+				if ts != nil {
+					ts.Histograms = append(ts.Histograms, h)
+					symbolize := func(s string) uint32 { return c.symbolTable.Symbolize(s) }
+					ts.Exemplars = append(ts.Exemplars, getPromExemplarsV2[pmetric.HistogramDataPoint](pt, symbolize)...)
+				}
 			}
 			if !settings.KeepClassicHistograms {
 				continue

@@ -300,8 +300,10 @@ func (c *prometheusConverter) addHistogramDataPoints(dataPoints pmetric.Histogra
 				errs = multierr.Append(errs, convErr)
 			} else {
 				nativeTS, _ := c.getOrCreateTimeSeries(createLabels(baseName, baseLabels))
-				nativeTS.Histograms = append(nativeTS.Histograms, h)
-				nativeTS.Exemplars = append(nativeTS.Exemplars, getPromExemplars[pmetric.HistogramDataPoint](pt)...)
+				if nativeTS != nil {
+					nativeTS.Histograms = append(nativeTS.Histograms, h)
+					nativeTS.Exemplars = append(nativeTS.Exemplars, getPromExemplars[pmetric.HistogramDataPoint](pt)...)
+				}
 			}
 			if !settings.KeepClassicHistograms {
 				continue
@@ -557,6 +559,21 @@ func createLabels(name string, baseLabels []prompb.Label, extras ...string) []pr
 // getOrCreateTimeSeries returns the time series corresponding to the label set if existent, and false.
 // Otherwise it creates a new one and returns that, and true.
 func (c *prometheusConverter) getOrCreateTimeSeries(lbls []prompb.Label) (*prompb.TimeSeries, bool) {
+	if c.relabeler != nil {
+		var before string
+		if c.family != "" {
+			before = seriesName(lbls)
+		}
+		lbls = c.relabeler.apply(lbls)
+		if len(lbls) == 0 {
+			return nil, false
+		}
+		if before != "" {
+			if family := relabeledFamily(c.family, before, seriesName(lbls)); family != "" {
+				c.familyNames[family] = struct{}{}
+			}
+		}
+	}
 	h := timeSeriesSignature(lbls)
 	ts := c.unique[h]
 	if ts != nil {
