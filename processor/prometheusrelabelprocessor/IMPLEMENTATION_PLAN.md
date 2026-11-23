@@ -183,8 +183,8 @@ preserve each accepted point exactly once.
 
 ### 5. Add drop accounting and failure behavior
 
-Define generated internal telemetry in `metadata.yaml`. Count input data points,
-not projected buckets or quantiles. Give every rejected point one bounded reason:
+Register an internal counter that counts each rejected input point once, including
+points represented by multiple buckets or quantiles. Give each point one reason:
 `rule_drop`, `unsupported_type`, `unsupported_temporality`, `invalid_input`,
 `ambiguous_labels`, `invalid_output`, `incomplete_family`, or `identity_collision`.
 Keep metric names, label values, and resource identities out of telemetry labels.
